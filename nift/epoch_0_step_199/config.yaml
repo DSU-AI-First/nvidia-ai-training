@@ -1,0 +1,66 @@
+recipe: TrainFinetuneRecipeForNextTokenPrediction
+step_scheduler:
+  ckpt_every_steps: 50
+  val_every_steps: 50
+  max_steps: 200
+  num_epochs: 2
+dist_env:
+  backend: nccl
+  timeout_minutes: 10
+distributed:
+  strategy: ddp
+  dp_size: 1
+rng:
+  _target_: nemo_automodel.components.training.rng.StatefulRNG
+  seed: 42
+  ranked: true
+model:
+  _target_: nemo_automodel.NeMoAutoModelForCausalLM.from_pretrained
+  pretrained_model_name_or_path: Qwen/Qwen3-0.6B-Base
+  torch_dtype: float32
+peft:
+  _target_: nemo_automodel.components._peft.lora.PeftConfig
+  target_modules: '*_proj'
+  dim: 8
+  alpha: 16
+  dropout: 0.05
+  use_triton: false
+quantization:
+  load_in_4bit: false
+  load_in_8bit: false
+  bnb_4bit_compute_dtype: float16
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_quant_storage: float16
+dataset:
+  _target_: ml_dapt_dataset.make_causal_dataset
+  jsonl_path: /content/drive/MyDrive/DSU-FineTuning/Non-Instruction Finetuning/data/train_blocks.jsonl
+  limit_samples: 6400
+validation_dataset:
+  _target_: ml_dapt_dataset.make_causal_dataset
+  jsonl_path: /content/drive/MyDrive/DSU-FineTuning/Non-Instruction Finetuning/data/validation_blocks.jsonl
+  limit_samples: 6400
+dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  collate_fn: nemo_automodel.components.datasets.utils.default_collater
+  batch_size: 1
+  shuffle: true
+validation_dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  collate_fn: nemo_automodel.components.datasets.utils.default_collater
+  batch_size: 1
+loss_fn:
+  _target_: nemo_automodel.components.loss.masked_ce.MaskedCrossEntropy
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1.0e-05
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 0.0
+checkpoint:
+  enabled: true
+  checkpoint_dir: /content/drive/MyDrive/DSU-FineTuning/Non-Instruction Finetuning/artifacts/nemo_checkpoints
+  model_save_format: safetensors
+  save_consolidated: final
