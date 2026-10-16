@@ -1,0 +1,13 @@
+{
+  "dropout": 0.05,
+  "dropout_position": "post",
+  "exclude_modules": [],
+  "lora_A_init": "xavier",
+  "lora_dtype": null,
+  "match_all_linear": false,
+  "moe_rank_scaling": false,
+  "target_modules": "*_proj",
+  "use_dora": false,
+  "use_memory_efficient_lora": true,
+  "use_triton": false
+}
