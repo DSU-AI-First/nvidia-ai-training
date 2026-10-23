@@ -1,70 +1,120 @@
-# ML Domain-Adaptation Demo — 205 PDFs
+# NeMo Curator + NeMo AutoModel: Pharma PDF → Non-Instruction Fine-Tuning
 
-**Qwen3-0.6B-Base · NeMo Curator · NeMo AutoModel · One Colab T4**
 
-This notebook performs **causal next-token domain-adaptive pretraining** on ordinary Machine Learning text from 205 PDFs. It does not create instruction/answer pairs.
 
-## Workflow
+**Colab lab | CPU for data preparation, optional T4 for LoRA training**
 
-1. **Extract PDFs** — Parse 205 ML research papers using PyMuPDF
-2. **Document-level train/validation split** — Split by paper to avoid leakage
-3. **NeMo Curator filtering** — Quality filtering and deduplication
-3. **Tokenize** — Prepare data for Qwen3-0.6B-Base
-4. **Baseline held-out loss** — Measure pre-training perplexity
-5. **NeMo AutoModel QLoRA** — Domain-adaptive pretraining with QLoRA
-6. **Post-training loss** — Evaluate perplexity improvement
-7. **Save logs/metrics/artifacts** — Persist results to Google Drive
+This repository features a NeMo-based workflow rewriting a standard *Non-instruction Causal LLM Fine-Tuning / Domain-Adaptive Continued Pretraining* notebook. It processes the supplied **Metformin-Lipid-Therapy-Knowledge.pdf** along with optional domain extension datasets.
 
-## Key Details
+---
 
-- **Model**: `Qwen/Qwen3-0.6B-Base`
-- **Sequence length**: 256 tokens
-- **Hardware**: Single T4 GPU (14.56 GB VRAM)
-- **Training steps**: 30 (demo configuration)
-- **Batch size**: 1 with gradient accumulation × 4
-- **Learning rate**: 2e-4
-- **Max train blocks**: 6,400
-- **Max val blocks**: 160
+## What is genuinely NeMo here?
 
-## Important Notes
 
-> **This notebook is configured for a single T4 and a short faculty demo, not a full production training run.**
 
-- Has not been executed on your Colab account
-- NeMo APIs and package compatibility can change
-- If the AutoModel stage fails, retain the full traceback rather than rerunning blindly
-- No OpenAI API key is used (fully local/NeMo pipeline)
+* **PyMuPDF**: Extracts text from PDFs (NeMo Curator's text API does not replace a dedicated PDF parser).
 
-## Data
 
-- **205 PDFs** from ML research papers
-- PDFs should be placed in: `/content/drive/MyDrive/DSU-Finetuning_Project/doc/`
-- Cached extractions stored in: `/content/drive/MyDrive/DSU-Finetuning_Project/raw/`
-- Processed data in: `/content/drive/MyDrive/DSU-Finetuning_Project/data/`
-- Artifacts/logs in: `/content/drive/MyDrive/DSU-Finetuning_Project/artifacts/`
+* **NeMo Curator**: Uses real `Pipeline`, `JsonlReader`, `Modify`, `ScoreFilter`, and `JsonlWriter` components to clean and filter text on the **CPU**.
 
-## Requirements
+
+* **NeMo AutoModel**: Uses `NeMoAutoModelForCausalLM.from_pretrained`, its **LoRA `PeftConfig**`, and the `automodel` recipe to train on a **T4 GPU** using a raw-text next-token dataset factory (**not** instruction-response SFT).
+
+
+* **Hugging Face/PEFT**: Used for loading saved adapters for inference, as NeMo AutoModel natively supports this checkpoint format.
+
+
+
+> **Important Note:** A small multi-page PDF alone is insufficient to build a robust medical-domain model, so the workflow optionally incorporates public study texts (via generated study PDFs) to expand the learning experiment. This is designed strictly for architectural exploration and workflow practice, not clinical advice.
+> 
+> 
+
+---
+
+## What You Will Learn
+
+
+
+1. How a real **NeMo Curator** pipeline cleans and filters text on the CPU.
+
+
+2. How raw text transforms into next-token training examples via `input_ids` and target labels **shifted by one**.
+
+
+3. How a single **NeMo AutoModel YAML recipe** manages an end-to-end LoRA run.
+
+
+4. How to analyze live training logs and evaluate model quality using **perplexity on training vs. held-out validation text**.
+
+
+
+---
+
+## Files Created Under `/content/nemo_pharma_lab`
+
+* `raw/pdf_pages.jsonl`: One JSON record per extracted PDF page.
+
+
+* `curated/`: Cleaned text output shards from NeMo Curator.
+
+
+* `dataset/train.jsonl`, `dataset/validation.jsonl`: Page-level dataset splits.
+
+
+* `pharma_causal_dataset.py`: Custom dataset factory referenced by the YAML recipe.
+
+
+* `pharma_t4_lora.yaml`: The declarative training configuration.
+
+
+* `tinyllama_safetensors/`: Base model files.
+
+
+* `checkpoints/`: Trained LoRA adapter checkpoints.
+
+
+* `train.log`: Full, unfiltered execution logs.
+
+
+
+---
+
+## Quickstart & Execution Overview
+
+
+
+1. **Environment Setup:** Open the notebook in Google Colab, select a **CPU runtime** for text cleaning or a **T4 GPU** if running training.
+
+
+2. **Data Curation:** Run the text extraction and NeMo Curator pipeline stages to clean unicode artifacts, normalize spacing, and filter records.
+
+
+3. **Dataset Split:** Build page-level causal token blocks ensuring training and validation splits remain distinct.
+
+
+4. **Training:** Execute the NeMo AutoModel CLI command using the configuration recipe:
+
+
+```bash
+automodel pharma_t4_lora.yaml
 
 ```
-nemo-automodel
-nemo-curator
-pymupdf
-transformers
-accelerate
-bitsandbytes
-peft
-pyyaml
-huggingface_hub
-torchao>=0.16.0
-```
 
-## Hugging Face Authentication
 
-Optional for public model access. Set `HF_TOKEN` in Colab Secrets for authenticated downloads.
+5. **Evaluation:** Compute perplexity metrics and perform text generation comparisons between the base model and the fine-tuned LoRA adapter.
 
-## Output
 
-- Training/validation loss curves
-- Perplexity metrics (pre and post training)
-- Model adapters saved to artifacts directory
-- JSONL logs for analysis
+
+---
+
+## NVIDIA References
+
+
+
+* [NeMo Curator Text Cleaning Documentation](https://docs.nvidia.com/nemo/curator/v26.09/curate-text/process-data/content-processing/text-cleaning)
+
+* [NeMo Curator Quality Assessment Documentation](https://docs.nvidia.com/nemo/curator/v26.09/curate-text/process-data/quality-assessment)
+
+* [NeMo AutoModel SFT & PEFT Recipes](https://www.google.com/search?q=https://docs.nvidia.com/nemo/automodel/latest/recipes-e2e-examples/sft-peft)
+
+* [NeMo AutoModel Custom Datasets](https://www.google.com/search?q=https://docs.nvidia.com/nemo/automodel/latest/datasets/text-dataset)
