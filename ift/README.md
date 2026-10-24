@@ -1,1 +1,1 @@
-IFT dataset file link https://drive.google.com/drive/folders/1c6nOQirBhHdi_UJ8N3VcrvxCiVM0QVZ8
+HF dataset file link : https://huggingface.co/datasets/databricks/databricks-dolly-15k
